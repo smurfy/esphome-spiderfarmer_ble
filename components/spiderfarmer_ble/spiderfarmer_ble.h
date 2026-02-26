@@ -1,8 +1,14 @@
 #pragma once
 
+#include <esp_gap_ble_api.h>
+
 #include "esphome/core/component.h"
 #include "esphome/components/ble_client/ble_client.h"
 #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+
+#ifdef USE_TEXT_SENSOR
+#include "esphome/components/text_sensor/text_sensor.h"
+#endif
 
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
@@ -35,6 +41,12 @@ namespace esphome
             void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
                                      esp_ble_gattc_cb_param_t* param) override;
             void dump_config() override;
+
+#ifdef USE_TEXT_SENSOR
+            void set_deviceid_sensor(text_sensor::TextSensor* sensor) { this->deviceid_sensor_ = sensor; }
+            void set_fwversion_sensor(text_sensor::TextSensor* sensor) { this->fwversion_sensor_ = sensor; }
+            void set_hwversion_sensor(text_sensor::TextSensor* sensor) { this->hwversion_sensor_ = sensor; }
+#endif
 
 #ifdef USE_BINARY_SENSOR
             void set_outlet_1_sensor(binary_sensor::BinarySensor* sensor) { this->outlet_1_sensor_ = sensor; }
@@ -70,6 +82,12 @@ namespace esphome
 #endif
 
         protected:
+#ifdef USE_TEXT_SENSOR
+            text_sensor::TextSensor* deviceid_sensor_{nullptr};
+            text_sensor::TextSensor* fwversion_sensor_{nullptr};
+            text_sensor::TextSensor* hwversion_sensor_{nullptr};
+#endif
+
 #ifdef USE_BINARY_SENSOR
             binary_sensor::BinarySensor* outlet_1_sensor_{nullptr};
             binary_sensor::BinarySensor* outlet_2_sensor_{nullptr};

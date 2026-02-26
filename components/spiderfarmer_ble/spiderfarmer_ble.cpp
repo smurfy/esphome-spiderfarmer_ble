@@ -20,6 +20,14 @@ namespace esphome
 
         void SpiderfarmerBle::dump_config()
         {
+#ifdef USE_TEXT_SENSOR
+            ESP_LOGCONFIG(TAG, "Spiderfarmer BLE (text sensor):");
+
+            LOG_TEXT_SENSOR("  ", "Device id", this->deviceid_sensor_);
+            LOG_TEXT_SENSOR("  ", "Firmware version", this->fwversion_sensor_);
+            LOG_TEXT_SENSOR("  ", "Hardware version", this->hwversion_sensor_);
+#endif
+
 #ifdef USE_BINARY_SENSOR
             ESP_LOGCONFIG(TAG, "Spiderfarmer BLE (binary sensor):");
 
@@ -62,6 +70,212 @@ namespace esphome
 
         void SpiderfarmerBle::update()
         {
+            if (this->receive_buffer_.find("method\"") != std::string::npos
+                && this->receive_buffer_.find("}}}") != std::string::npos)
+            {
+                //ESP_LOGV(TAG, "[%s] Data: %s", this->parent_->address_str(), this->receive_buffer_.c_str());
+                auto json = json::parse_json(this->receive_buffer_);
+                std::string method = json["method"].as<std::string>();
+                if (method == "getSysSta")
+                {
+                    std::string deviceid = json["pid"].as<std::string>();
+                    JsonObject data = json["data"].as<JsonObject>();
+                    JsonObject sys = data["sys"].as<JsonObject>();
+
+                    std::string fwversion = sys["ver"].as<std::string>();
+                    std::string hwversion = sys["hwver"].as<std::string>();
+
+                    ESP_LOGV(TAG, "[%s] sys info: %s, %s, %s", this->parent_->address_str(),
+                             deviceid.c_str(), fwversion.c_str(), hwversion.c_str());
+#ifdef USE_TEXT_SENSOR
+                    if (this->deviceid_sensor_ != nullptr)
+                        this->deviceid_sensor_->publish_state(deviceid);
+                    if (this->fwversion_sensor_ != nullptr)
+                        this->fwversion_sensor_->publish_state(fwversion);
+                    if (this->hwversion_sensor_ != nullptr)
+                        this->hwversion_sensor_->publish_state(hwversion);
+#endif
+                }
+
+                if (method == "getDevSta")
+                {
+                    JsonObject data = json["data"].as<JsonObject>();
+
+                    // These will come via method: getDevSta
+                    JsonObject outlet = data["outlet"].as<JsonObject>();
+                    // {"psmode":1,"O1":{"on":0,"mode":1},"O2":{"on":1,"mode":0},"O3":{"on":0,"mode":0},"O4":{"on":1,"mode":1},"O5":{"on":0,"mode":0}}
+                    JsonObject sensor = data["sensor"].as<JsonObject>();
+                    // {"tempUnit":0,"temp":27.8,"humi":46.8,"vpd":1.99,"isDaySensor":1,"ppfd":737,"co2":2146,"tempSoil":21.9,"humiSoil":26.3,"ECSoil":0.5,"isDayEnvTarget":0}
+                    JsonObject light = data["light"].as<JsonObject>(); // {"mode":1,"level":100}
+                    JsonObject blower = data["blower"].as<JsonObject>();
+                    // {"mode":0,"ctlMode":1,"level":33,"aemodel":0,"adcManual":0,"freq":71}
+                    JsonObject fan = data["fan"].as<JsonObject>();
+                    // {"mode":0,"level":0,"shakeLevel":0,"shakeAngle":0,"natural":0,"pwm":0,"freq":0}
+
+#ifdef USE_BINARY_SENSOR
+                    if (!outlet.isNull())
+                    {
+                        dumpJson(outlet);
+
+                        if (this->outlet_1_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O1"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_1_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_2_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O2"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_2_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_3_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O3"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_3_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_4_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O4"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_4_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_5_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O5"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_5_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_6_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O6"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_6_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_7_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O7"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_7_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_8_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O8"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_8_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_9_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O9"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_9_sensor_->publish_state(status > 0);
+                        }
+                        if (this->outlet_10_sensor_ != nullptr)
+                        {
+                            JsonObject outletdata = outlet["O10"].as<JsonObject>();
+                            int status = outletdata["on"].as<int>();
+                            this->outlet_10_sensor_->publish_state(status > 0);
+                        }
+                    }
+
+                    if (!sensor.isNull())
+                    {
+                        if (!fan.isNull())
+                        {
+                            if (this->fan_natural_sensor_ != nullptr)
+                            {
+                                int natural = fan["natural"].as<int>();
+                                this->fan_natural_sensor_->publish_state(natural > 0);
+                            }
+                        }
+                    }
+#endif
+
+#ifdef USE_SENSOR
+                    if (!sensor.isNull())
+                    {
+                        dumpJson(sensor);
+
+                        if (this->sensor_soil_temp_sensor_ != nullptr)
+                        {
+                            float temperature = sensor["tempSoil"].as<float>();
+                            this->sensor_soil_temp_sensor_->publish_state(temperature);
+                        }
+                        if (this->sensor_soil_hum_sensor_ != nullptr)
+                        {
+                            float humidity = sensor["humiSoil"].as<float>();
+                            this->sensor_soil_hum_sensor_->publish_state(humidity);
+                        }
+                        if (this->sensor_soil_ec_sensor_ != nullptr)
+                        {
+                            float ec = sensor["ECSoil"].as<float>();
+                            this->sensor_soil_ec_sensor_->publish_state(ec);
+                        }
+                        if (this->sensor_temp_sensor_ != nullptr)
+                        {
+                            float temperature = sensor["temp"].as<float>();
+                            this->sensor_temp_sensor_->publish_state(temperature);
+                        }
+                        if (this->sensor_hum_sensor_ != nullptr)
+                        {
+                            float humidity = sensor["humi"].as<float>();
+                            this->sensor_hum_sensor_->publish_state(humidity);
+                        }
+                        if (this->sensor_vpd_sensor_ != nullptr)
+                        {
+                            float vpd = sensor["vpd"].as<float>();
+                            this->sensor_vpd_sensor_->publish_state(vpd);
+                        }
+                        if (this->sensor_ppfd_sensor_ != nullptr)
+                        {
+                            float ppfd = sensor["ppfd"].as<float>();
+                            this->sensor_ppfd_sensor_->publish_state(ppfd);
+                        }
+                        if (this->sensor_co2_sensor_ != nullptr)
+                        {
+                            float co2 = sensor["co2"].as<float>();
+                            this->sensor_co2_sensor_->publish_state(co2);
+                        }
+                    }
+
+                    if (!light.isNull())
+                    {
+                        dumpJson(light);
+
+                        if (this->light_level_sensor_ != nullptr)
+                        {
+                            float level = light["level"].as<float>();
+                            this->light_level_sensor_->publish_state(level);
+                        }
+                    }
+
+                    if (!blower.isNull())
+                    {
+                        dumpJson(blower);
+
+                        if (this->blower_level_sensor_ != nullptr)
+                        {
+                            float level = blower["level"].as<float>();
+                            this->blower_level_sensor_->publish_state(level);
+                        }
+                    }
+
+                    if (!fan.isNull())
+                    {
+                        dumpJson(fan);
+
+                        if (this->fan_level_sensor_ != nullptr)
+                        {
+                            float level = fan["level"].as<float>();
+                            this->fan_level_sensor_->publish_state(level);
+                        }
+                    }
+#endif
+                }
+
+                this->receive_buffer_ = "";
+            }
         }
 
         void SpiderfarmerBle::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
@@ -69,6 +283,16 @@ namespace esphome
         {
             switch (event)
             {
+            case ESP_GATTC_ADV_DATA_EVT:
+                {
+                    ESP_LOGD(TAG, "ESP_GATTC_ADV_DATA_EVT triggered");
+
+#ifdef USE_TEXT_SENSOR
+                    // if (this->friendly_name_sensor_ != nullptr)
+                    //     this->friendly_name_sensor_->publish_state((char*)param->read.value, param->read.value_len);
+#endif
+                    break;
+                }
             case ESP_GATTC_OPEN_EVT:
                 {
                     if (param->open.status == ESP_GATT_OK)
@@ -81,37 +305,13 @@ namespace esphome
                 {
                     if (std::memcmp(param->connect.remote_bda, this->parent_->get_remote_bda(), 6) != 0)
                         return;
+
                     break;
                 }
             case ESP_GATTC_DISCONNECT_EVT:
                 {
                     this->node_state = espbt::ClientState::IDLE;
                     this->receive_buffer_ = "";
-#ifdef USE_BINARY_SENSOR
-                    if (this->outlet_1_sensor_ != nullptr)
-                        this->outlet_1_sensor_->publish_state(NAN);
-                    if (this->outlet_2_sensor_ != nullptr)
-                        this->outlet_2_sensor_->publish_state(NAN);
-                    if (this->outlet_3_sensor_ != nullptr)
-                        this->outlet_3_sensor_->publish_state(NAN);
-                    if (this->outlet_4_sensor_ != nullptr)
-                        this->outlet_4_sensor_->publish_state(NAN);
-                    if (this->outlet_5_sensor_ != nullptr)
-                        this->outlet_5_sensor_->publish_state(NAN);
-                    if (this->outlet_6_sensor_ != nullptr)
-                        this->outlet_6_sensor_->publish_state(NAN);
-                    if (this->outlet_7_sensor_ != nullptr)
-                        this->outlet_7_sensor_->publish_state(NAN);
-                    if (this->outlet_8_sensor_ != nullptr)
-                        this->outlet_8_sensor_->publish_state(NAN);
-                    if (this->outlet_9_sensor_ != nullptr)
-                        this->outlet_9_sensor_->publish_state(NAN);
-                    if (this->outlet_10_sensor_ != nullptr)
-                        this->outlet_10_sensor_->publish_state(NAN);
-
-                    if (this->fan_natural_sensor_ != nullptr)
-                        this->fan_natural_sensor_->publish_state(NAN);
-#endif
 #ifdef USE_SENSOR
                     if (this->sensor_soil_temp_sensor_ != nullptr)
                         this->sensor_soil_temp_sensor_->publish_state(NAN);
@@ -165,6 +365,7 @@ namespace esphome
             case ESP_GATTC_REG_FOR_NOTIFY_EVT:
                 {
                     this->node_state = espbt::ClientState::ESTABLISHED;
+                    this->receive_buffer_ = "";
                     this->update();
                     break;
                 }
@@ -175,19 +376,19 @@ namespace esphome
                         //ESP_LOGV(TAG, "[%s] raw data %d: %s", this->parent_->address_str(), param->notify.value_len, format_hex(param->notify.value, param->notify.value_len).c_str());
                         if (param->notify.value_len > 22)
                         {
-                            // First header
-                            if (param->notify.value[0] == 0xAA && param->notify.value[1] == 0xAA && param->notify.value[
-                                2] == 0x00 && param->notify.value[3] == 0x03)
+                            // has a valid header
+                            if (param->notify.value[0] == 0xAA && param->notify.value[1] == 0xAA
+                                && param->notify.value[2] == 0x00 && param->notify.value[3] == 0x03)
                             {
                                 // Extract payload size
-                                uint16_t data_size = (static_cast<uint16_t>(param->notify.value[4]) << 8) | param->
-                                    notify.value[5];
+                                uint16_t data_size = (static_cast<uint16_t>(param->notify.value[4]) << 8)
+                                    | param->notify.value[5];
                                 if (data_size + 8 == param->notify.value_len)
                                 {
                                     //ESP_LOGV(TAG, "[%s] looks like good data. got %d", this->parent_->address_str(), data_size);
                                     for (int i = 12; i < data_size - 2; i++)
                                     {
-                                        char c = (char)param->notify.value[i + 8];
+                                        char c = static_cast<char>(param->notify.value[i + 8]);
                                         // Filtering out some crap
                                         if (c >= 32 && c <= 126)
                                         {
@@ -195,187 +396,23 @@ namespace esphome
                                         }
                                     }
 
-                                    if (this->receive_buffer_.find("method\"") != std::string::npos && this->
-                                        receive_buffer_.find("}}}") != std::string::npos)
+                                    this->update();
+                                }
+                            }
+                            // looks like direct json without header
+                            else if (param->notify.value[0] == 0x7B && param->notify.value[1] == 0x22 && param->notify.
+                                value[2] == 0x6d)
+                            {
+                                for (int i = 0; i < param->notify.value_len; i++)
+                                {
+                                    char c = static_cast<char>(param->notify.value[i]);
+                                    // Filtering out some crap
+                                    if (c >= 32 && c <= 126)
                                     {
-                                        //ESP_LOGV(TAG, "[%s] Data: %s", this->parent_->address_str(), this->receive_buffer_.c_str());
-                                        auto json = json::parse_json(this->receive_buffer_);
-                                        JsonObject data = json["data"].as<JsonObject>();
-
-                                        // These will come via method: getDevSta
-                                        JsonObject outlet = data["outlet"].as<JsonObject>();
-                                        // {"psmode":1,"O1":{"on":0,"mode":1},"O2":{"on":1,"mode":0},"O3":{"on":0,"mode":0},"O4":{"on":1,"mode":1},"O5":{"on":0,"mode":0}}
-                                        JsonObject sensor = data["sensor"].as<JsonObject>();
-                                        // {"tempUnit":0,"temp":27.8,"humi":46.8,"vpd":1.99,"isDaySensor":1,"ppfd":737,"co2":2146,"tempSoil":21.9,"humiSoil":26.3,"ECSoil":0.5,"isDayEnvTarget":0}
-                                        JsonObject light = data["light"].as<JsonObject>(); // {"mode":1,"level":100}
-                                        JsonObject blower = data["blower"].as<JsonObject>();
-                                        // {"mode":0,"ctlMode":1,"level":33,"aemodel":0,"adcManual":0,"freq":71}
-                                        JsonObject fan = data["fan"].as<JsonObject>();
-                                        // {"mode":0,"level":0,"shakeLevel":0,"shakeAngle":0,"natural":0,"pwm":0,"freq":0}
-
-#ifdef USE_BINARY_SENSOR
-                                        if (!outlet.isNull())
-                                        {
-                                            dumpJson(outlet);
-
-                                            if (this->outlet_1_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O1"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_1_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_2_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O2"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_2_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_3_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O3"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_3_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_4_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O4"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_4_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_5_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O5"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_5_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_6_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O6"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_6_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_7_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O7"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_7_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_8_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O8"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_8_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_9_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O9"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_9_sensor_->publish_state(status > 0);
-                                            }
-                                            if (this->outlet_10_sensor_ != nullptr)
-                                            {
-                                                JsonObject outletdata = outlet["O10"].as<JsonObject>();
-                                                int status = outletdata["on"].as<int>();
-                                                this->outlet_10_sensor_->publish_state(status > 0);
-                                            }
-                                        }
-
-                                        if (!sensor.isNull())
-                                        {
-                                            if (!fan.isNull())
-                                            {
-                                                if (this->fan_natural_sensor_ != nullptr)
-                                                {
-                                                    int natural = fan["natural"].as<int>();
-                                                    this->fan_natural_sensor_->publish_state(natural > 0);
-                                                }
-                                            }
-                                        }
-#endif
-
-#ifdef USE_SENSOR
-                                        if (!sensor.isNull())
-                                        {
-                                            dumpJson(sensor);
-
-                                            if (this->sensor_soil_temp_sensor_ != nullptr)
-                                            {
-                                                float temperature = sensor["tempSoil"].as<float>();
-                                                this->sensor_soil_temp_sensor_->publish_state(temperature);
-                                            }
-                                            if (this->sensor_soil_hum_sensor_ != nullptr)
-                                            {
-                                                float humidity = sensor["humiSoil"].as<float>();
-                                                this->sensor_soil_hum_sensor_->publish_state(humidity);
-                                            }
-                                            if (this->sensor_soil_ec_sensor_ != nullptr)
-                                            {
-                                                float ec = sensor["ECSoil"].as<float>();
-                                                this->sensor_soil_ec_sensor_->publish_state(ec);
-                                            }
-                                            if (this->sensor_temp_sensor_ != nullptr)
-                                            {
-                                                float temperature = sensor["temp"].as<float>();
-                                                this->sensor_temp_sensor_->publish_state(temperature);
-                                            }
-                                            if (this->sensor_hum_sensor_ != nullptr)
-                                            {
-                                                float humidity = sensor["humi"].as<float>();
-                                                this->sensor_hum_sensor_->publish_state(humidity);
-                                            }
-                                            if (this->sensor_vpd_sensor_ != nullptr)
-                                            {
-                                                float vpd = sensor["vpd"].as<float>();
-                                                this->sensor_vpd_sensor_->publish_state(vpd);
-                                            }
-                                            if (this->sensor_ppfd_sensor_ != nullptr)
-                                            {
-                                                float ppfd = sensor["ppfd"].as<float>();
-                                                this->sensor_ppfd_sensor_->publish_state(ppfd);
-                                            }
-                                            if (this->sensor_co2_sensor_ != nullptr)
-                                            {
-                                                float co2 = sensor["co2"].as<float>();
-                                                this->sensor_co2_sensor_->publish_state(co2);
-                                            }
-                                        }
-
-                                        if (!light.isNull())
-                                        {
-                                            dumpJson(light);
-
-                                            if (this->light_level_sensor_ != nullptr)
-                                            {
-                                                float level = light["level"].as<float>();
-                                                this->light_level_sensor_->publish_state(level);
-                                            }
-                                        }
-
-                                        if (!blower.isNull())
-                                        {
-                                            dumpJson(blower);
-
-                                            if (this->blower_level_sensor_ != nullptr)
-                                            {
-                                                float level = blower["level"].as<float>();
-                                                this->blower_level_sensor_->publish_state(level);
-                                            }
-                                        }
-
-                                        if (!fan.isNull())
-                                        {
-                                            dumpJson(fan);
-
-                                            if (this->fan_level_sensor_ != nullptr)
-                                            {
-                                                float level = fan["level"].as<float>();
-                                                this->fan_level_sensor_->publish_state(level);
-                                            }
-                                        }
-#endif
-                                        this->receive_buffer_ = "";
+                                        this->receive_buffer_ += c;
                                     }
                                 }
+                                this->update();
                             }
                         }
                     }
