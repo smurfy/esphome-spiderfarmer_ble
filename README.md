@@ -6,6 +6,28 @@ It uses the BLE/Bluetooth protocol to get those data. While it would also suppor
 
 Based on research done by crO' here: https://github.com/cr0ssn0tice/Spider-Farmer-GGS-Controller-MQTT/
 
+## Tested with the following GGS devices
+
+Please be aware, at least 3.14 firmware on SF-GGS-CB adds encryption or some other kind of obfuscation to the data and it currently cant be decrypted by this component. 
+
+### SF-GGS-CB (Controller)
+
+Confirmed working, with Firmwares:
+- 3.2
+
+### SF-GGS-PS5 (Powerstrip 5 outlets)
+
+Confirmed working, with Firmwares:
+- 1.7
+
+### SF-GGS-PS10 (Powerstrip 10 outlets)
+
+Untested, but should work, just define more binary sensor outlets if you want to see their status.
+
+### SF-GGS-LC (Light)
+
+Connection works and system data (versions, name etc) are displayed, but data is quite different and not parsed, since the light is usually connected to a controller
+
 ## Configuration
 
 You mainly need to specify the `mac_address` of your SpiderFarmer GGS.
@@ -75,4 +97,14 @@ binary_sensor:
       name: "Outlet 05"
     fan_natural:
       name: "Fan Natural"
+      
+text_sensor:
+  - platform: spiderfarmer_ble
+    spiderfarmer_id: spidy1
+    device_id:
+      name: "Device id"
+    fw_version:
+      name: "Firmware version"
+    hw_version:
+      name: "Hardware version"
 ````
