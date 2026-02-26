@@ -21,6 +21,8 @@ CONF_OUTLET8_STATUS = "outlet8_status"
 CONF_OUTLET9_STATUS = "outlet9_status"
 CONF_OUTLET10_STATUS = "outlet10_status"
 
+CONF_FAN_NATURAL = "fan_natural"
+
 CONFIG_SCHEMA = (
     cv.Schema(
         {
@@ -54,6 +56,10 @@ CONFIG_SCHEMA = (
                 device_class=DEVICE_CLASS_POWER,
             ),
             cv.Optional(CONF_OUTLET10_STATUS): binary_sensor.binary_sensor_schema(
+                device_class=DEVICE_CLASS_POWER,
+            ),
+
+            cv.Optional(CONF_FAN_NATURAL): binary_sensor.binary_sensor_schema(
                 device_class=DEVICE_CLASS_POWER,
             ),
         }
@@ -94,3 +100,7 @@ async def to_code(config):
     if CONF_OUTLET10_STATUS in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_OUTLET10_STATUS])
         cg.add(var.set_outlet_10_sensor(sens))
+
+    if CONF_FAN_NATURAL in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_FAN_NATURAL])
+        cg.add(var.set_fan_natural_sensor(sens))

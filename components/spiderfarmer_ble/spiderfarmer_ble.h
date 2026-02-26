@@ -47,6 +47,8 @@ namespace esphome
             void set_outlet_8_sensor(binary_sensor::BinarySensor* sensor) { this->outlet_8_sensor_ = sensor; }
             void set_outlet_9_sensor(binary_sensor::BinarySensor* sensor) { this->outlet_9_sensor_ = sensor; }
             void set_outlet_10_sensor(binary_sensor::BinarySensor* sensor) { this->outlet_10_sensor_ = sensor; }
+
+            void set_fan_natural_sensor(binary_sensor::BinarySensor* sensor) { this->fan_natural_sensor_ = sensor; }
 #endif
 
 #ifdef USE_SENSOR
@@ -79,6 +81,8 @@ namespace esphome
             binary_sensor::BinarySensor* outlet_8_sensor_{nullptr};
             binary_sensor::BinarySensor* outlet_9_sensor_{nullptr};
             binary_sensor::BinarySensor* outlet_10_sensor_{nullptr};
+
+            binary_sensor::BinarySensor* fan_natural_sensor_{nullptr};
 #endif
 #ifdef USE_SENSOR
             sensor::Sensor* sensor_soil_temp_sensor_{nullptr};

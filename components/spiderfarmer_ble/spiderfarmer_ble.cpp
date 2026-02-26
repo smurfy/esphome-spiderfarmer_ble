@@ -33,6 +33,8 @@ namespace esphome
             LOG_BINARY_SENSOR("  ", "Outlet 08", this->outlet_8_sensor_);
             LOG_BINARY_SENSOR("  ", "Outlet 09", this->outlet_9_sensor_);
             LOG_BINARY_SENSOR("  ", "Outlet 10", this->outlet_10_sensor_);
+
+            LOG_BINARY_SENSOR("  ", "Fan natural", this->fan_natural_sensor_);
 #endif
 
 #ifdef USE_SENSOR
@@ -106,6 +108,9 @@ namespace esphome
                         this->outlet_9_sensor_->publish_state(NAN);
                     if (this->outlet_10_sensor_ != nullptr)
                         this->outlet_10_sensor_->publish_state(NAN);
+
+                    if (this->fan_natural_sensor_ != nullptr)
+                        this->fan_natural_sensor_->publish_state(NAN);
 #endif
 #ifdef USE_SENSOR
                     if (this->sensor_soil_temp_sensor_ != nullptr)
@@ -272,6 +277,18 @@ namespace esphome
                                                 JsonObject outletdata = outlet["O10"].as<JsonObject>();
                                                 int status = outletdata["on"].as<int>();
                                                 this->outlet_10_sensor_->publish_state(status > 0);
+                                            }
+                                        }
+
+                                        if (!sensor.isNull())
+                                        {
+                                            if (!fan.isNull())
+                                            {
+                                                if (this->fan_natural_sensor_ != nullptr)
+                                                {
+                                                    int natural = fan["natural"].as<int>();
+                                                    this->fan_natural_sensor_->publish_state(natural > 0);
+                                                }
                                             }
                                         }
 #endif

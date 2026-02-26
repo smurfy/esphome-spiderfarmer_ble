@@ -54,11 +54,11 @@ sensor:
     co2:
        name: "CO2"
     light_level:
-       name: "Light"
+       name: "Light level"
     blower_level:
-       name: "Blower"
+       name: "Blower level"
     fan_level:
-       name: "Fan"
+       name: "Fan level"
 
 binary_sensor:
   - platform: spiderfarmer_ble
@@ -73,4 +73,6 @@ binary_sensor:
       name: "Outlet 04"
     outlet5_status:
       name: "Outlet 05"
+    fan_natural:
+      name: "Fan Natural"
 ````

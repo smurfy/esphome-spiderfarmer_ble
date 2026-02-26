@@ -16,6 +16,7 @@ from esphome.const import (
     UNIT_PERCENT,
     UNIT_PARTS_PER_MILLION,
     UNIT_MILLISIEMENS_PER_CENTIMETER,
+    UNIT_EMPTY,
 )
 from . import CONF_SPIDERFARMER_ID, SpiderfarmerBle
 
@@ -104,7 +105,7 @@ CONFIG_SCHEMA = (
             ),
 
             cv.Optional(CONF_FAN_LEVEL): sensor.sensor_schema(
-                unit_of_measurement=UNIT_PERCENT,
+                unit_of_measurement=UNIT_EMPTY,
                 accuracy_decimals=0,
                 device_class=DEVICE_CLASS_EMPTY,
                 state_class=STATE_CLASS_MEASUREMENT,
