@@ -41,7 +41,8 @@ namespace esphome
             void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
                                      esp_ble_gattc_cb_param_t* param) override;
             void dump_config() override;
-
+            void set_aes_key(const char *key) { aes_key_ = key; }
+            void set_aes_iv(const char *iv) { aes_iv_ = iv; }
 #ifdef USE_TEXT_SENSOR
             void set_deviceid_sensor(text_sensor::TextSensor* sensor) { this->deviceid_sensor_ = sensor; }
             void set_fwversion_sensor(text_sensor::TextSensor* sensor) { this->fwversion_sensor_ = sensor; }
@@ -82,6 +83,8 @@ namespace esphome
 #endif
 
         protected:
+            const char* aes_key_{nullptr};
+            const char* aes_iv_{nullptr};
 #ifdef USE_TEXT_SENSOR
             text_sensor::TextSensor* deviceid_sensor_{nullptr};
             text_sensor::TextSensor* fwversion_sensor_{nullptr};

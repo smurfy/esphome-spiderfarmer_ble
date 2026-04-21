@@ -8,7 +8,8 @@ Based on research done by crO' here: https://github.com/cr0ssn0tice/Spider-Farme
 
 ## Tested with the following GGS devices
 
-Please be aware, at least 3.14 firmware on SF-GGS-CB adds encryption or some other kind of obfuscation to the data and it currently cant be decrypted by this component. 
+Please be aware, newer firmwares for all systems use encryption to no longer send the data plaintext.
+Easiest is to use older firmware otherwise you need to set correct key and iv value for the AES encryption.
 
 ### SF-GGS-CB (Controller)
 
@@ -24,6 +25,7 @@ Confirmed working, with Firmwares:
 
 Confirmed working, with Firmwares:
 - 2.9
+- 3.14 (if correct key and iv value is provided in configuration)
 
 ### SF-GGS-LC (Light)
 
@@ -31,7 +33,10 @@ Connection works and system data (versions, name etc) are displayed, but data is
 
 ## Configuration
 
-You mainly need to specify the `mac_address` of your SpiderFarmer GGS.
+You mainly need to specify the `mac_address` of your SpiderFarmer GGS and which sensors to use.
+
+For newer firmware you also need to specify encryption key and iv.
+The key / iv is specific to the product and possible firmware, currently you are on your own how to get the correct key/iv
 
 ````
 esphome:
@@ -56,6 +61,8 @@ ble_client:
 spiderfarmer_ble:
   - id: spidy1
     ble_client_id: spidy_ble
+    spiderfarmer_aes_key: kEyKeYkEYkeYkEYK # set the correct key!
+    spiderfarmer_aes_iv: iViViViViViViViV # set the correct iv!
 
 sensor:
   - platform: spiderfarmer_ble
