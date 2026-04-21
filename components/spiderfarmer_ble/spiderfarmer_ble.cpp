@@ -18,6 +18,23 @@ namespace esphome
             ESP_LOGV(TAG, "Data: %s", jsonStr.c_str());
         }
 
+        uint16_t crc16(const uint8_t* data, size_t length) {
+            uint16_t crc = 0xFFFF;
+
+            for (size_t i = 0; i < length; ++i) {
+                crc ^= data[i];
+                for (int j = 0; j < 8; ++j) {
+                    if (crc & 0x0001) {
+                        crc = (crc >> 1) ^ 0xA001;
+                    } else {
+                        crc >>= 1;
+                    }
+                }
+            }
+
+            return crc;
+        }
+
         void SpiderfarmerBle::dump_config()
         {
 #ifdef USE_TEXT_SENSOR
@@ -385,10 +402,43 @@ namespace esphome
                                     | param->notify.value[5];
                                 if (data_size + 8 == param->notify.value_len)
                                 {
-                                    //ESP_LOGV(TAG, "[%s] looks like good data. got %d", this->parent_->address_str(), data_size);
-                                    for (int i = 12; i < data_size - 2; i++)
+                                    ESP_LOGV(TAG, "[%s] looks like good data. got %d", this->parent_->address_str(), data_size);
+
+                                    // Unencrypted
+                                    // aaaa0003 019e 0001 99e7 00000246 00000000 0190 7b226d65746...
+                                    // aaaa0003 00c5 0001 438f 00000247 00000190 00b7 70646174654...
+                                    // Encrypted
+                                    // aaaa0003 00de 0002 046d 000000d0 00000000 00d0 8faabc89655...
+
+                                    uint32_t total_size = ((uint32_t)param->notify.value[10] << 24) |
+                                        ((uint32_t)param->notify.value[11] << 16) |
+                                        ((uint32_t)param->notify.value[12] << 8) |
+                                        ((uint32_t)param->notify.value[13]);
+                                    uint32_t block_offset = ((uint32_t)param->notify.value[14] << 24) |
+                                        ((uint32_t)param->notify.value[15] << 16) |
+                                        ((uint32_t)param->notify.value[16] << 8) |
+                                        ((uint32_t)param->notify.value[17]);
+                                    uint16_t block_size = ((uint16_t)param->notify.value[18] << 8) |
+                                        ((uint16_t)param->notify.value[19]);
+
+                                    uint16_t full_crc = ((uint16_t)param->notify.value[20 + block_size] << 8) |
+                                        ((uint16_t)param->notify.value[20 + block_size + 1]);
+
+                                    uint8_t msgtype[2];
+                                    uint8_t fileid[2];
+                                    std::memcpy(msgtype, param->notify.value + 6, 2);
+                                    std::memcpy(fileid, param->notify.value + 8, 2);
+
+                                    uint16_t calculated_crc = crc16(param->notify.value, 20 + block_size);
+
+                                    ESP_LOGD(TAG, "HEADER: %s", format_hex(param->notify.value, 20).c_str());
+                                    ESP_LOGD(TAG, "Decoded: MSG: %s ID: %s TOTAL: %d OFF: %d SIZE: %d CRC: %d vs %d", format_hex(msgtype, 2).c_str(), format_hex(fileid, 2).c_str(), total_size, block_offset, block_size, calculated_crc, full_crc);
+                                    ESP_LOGD(TAG, "DATA: %s", format_hex(param->notify.value + 20, block_size + 2).c_str());
+
+                                    // Pushing actual payload to string
+                                    for (int i = 0; i < block_size; i++)
                                     {
-                                        char c = static_cast<char>(param->notify.value[i + 8]);
+                                        char c = static_cast<char>(param->notify.value[20 + i]);
                                         // Filtering out some crap
                                         if (c >= 32 && c <= 126)
                                         {

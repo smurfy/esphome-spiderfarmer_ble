@@ -22,7 +22,8 @@ Confirmed working, with Firmwares:
 
 ### SF-GGS-PS10 (Powerstrip 10 outlets)
 
-Untested, but should work, just define more binary sensor outlets if you want to see their status.
+Confirmed working, with Firmwares:
+- 2.9
 
 ### SF-GGS-LC (Light)
 
