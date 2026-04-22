@@ -512,6 +512,11 @@ namespace esphome
                                     ESP_LOGD(TAG, "HEADER: %s", format_hex(param->notify.value, 20).c_str());
                                     ESP_LOGD(TAG, "Decoded: MSG: %s ID: %s TOTAL: %d OFF: %d SIZE: %d CRC: %d vs %d", format_hex(msgtype, 2).c_str(), format_hex(fileid, 2).c_str(), total_size, block_offset, block_size, calculated_crc, full_crc);
 
+                                    if (full_crc != calculated_crc)
+                                    {
+                                        ESP_LOGW(TAG, "Received invalid data, checksum do not match");
+                                    }
+
                                     uint8_t *data = (uint8_t*)malloc(block_size);
 
                                     if (msgtype[0] == 0x00 && msgtype[1] == 0x01)
@@ -573,6 +578,9 @@ namespace esphome
                             else if (param->notify.value[0] == 0x7B && param->notify.value[1] == 0x22 && param->notify.
                                 value[2] == 0x6d)
                             {
+                                ESP_LOGD(TAG, "DATA");
+                                dumpData(format_hex(param->notify.value, param->notify.value_len).c_str());
+
                                 for (int i = 0; i < param->notify.value_len; i++)
                                 {
                                     char c = static_cast<char>(param->notify.value[i]);
