@@ -5,21 +5,116 @@
 
 #ifdef USE_ESP32
 
+#include "psa/crypto.h"
+
 namespace esphome
 {
     namespace spiderfarmer_ble
     {
         static const char* const TAG = "spiderfarmer_ble";
 
+        void dumpData(const std::string& str)
+        {
+            for (std::size_t i = 0; i < str.size(); i += 50) {
+                ESP_LOGD(TAG, "Data: %s", str.substr(i, 50).c_str());
+            }
+        }
+
         void dumpJson(JsonObject json)
         {
             std::string jsonStr = "";
             serializeJson(json, jsonStr);
-            ESP_LOGV(TAG, "Data: %s", jsonStr.c_str());
+            dumpData(jsonStr);
+        }
+
+        uint16_t crc16(const uint8_t* data, size_t length) {
+            uint16_t crc = 0xFFFF;
+
+            for (size_t i = 0; i < length; ++i) {
+                crc ^= data[i];
+                for (int j = 0; j < 8; ++j) {
+                    if (crc & 0x0001) {
+                        crc = (crc >> 1) ^ 0xA001;
+                    } else {
+                        crc >>= 1;
+                    }
+                }
+            }
+
+            return crc;
+        }
+
+        psa_status_t decrypt_aes(
+            const char *key, const char *iv,
+            uint8_t *ciphertext, size_t ciphertext_len,
+            uint8_t *plaintext, size_t plaintext_size, size_t *plaintext_len)
+        {
+            psa_status_t status;
+            psa_crypto_init();
+
+            psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+            psa_key_id_t key_id;
+
+            psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+            psa_set_key_bits(&attr, 128);
+            psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_DECRYPT);
+            psa_set_key_algorithm(&attr, PSA_ALG_CBC_NO_PADDING);
+
+            status = psa_import_key(&attr, (const uint8_t*)key, strlen(key), &key_id);
+
+            ESP_LOGV(TAG, "IMPORT KEY: %d", status);
+            if (status != PSA_SUCCESS) return status;
+
+            psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
+            size_t output_len = 0, total_len = 0;
+
+            status = psa_cipher_decrypt_setup(&operation, key_id, PSA_ALG_CBC_NO_PADDING);
+
+            ESP_LOGV(TAG, "SETUP KEY: %d", status);
+            if (status != PSA_SUCCESS) return status;
+
+            status = psa_cipher_set_iv(&operation, (const uint8_t*)iv, strlen(iv));
+
+            ESP_LOGV(TAG, "SETUP IV: %d", status);
+            if (status != PSA_SUCCESS) return status;
+
+            status = psa_cipher_update(&operation,
+                                       ciphertext, ciphertext_len,
+                                       plaintext, plaintext_size,
+                                       &output_len);
+
+            ESP_LOGV(TAG, "UPDATE WITH DATA: %d", status);
+            if (status != PSA_SUCCESS) return status;
+
+            total_len += output_len;
+
+            status = psa_cipher_finish(&operation,
+                                       plaintext + total_len,
+                                       plaintext_size - total_len,
+                                       &output_len);
+
+            ESP_LOGV(TAG, "FIN: %d", status);
+            if (status != PSA_SUCCESS) return status;
+
+            total_len += output_len;
+            *plaintext_len = total_len;
+
+            psa_destroy_key(key_id);
+
+            return PSA_SUCCESS;
         }
 
         void SpiderfarmerBle::dump_config()
         {
+            if (this->aes_key_ != nullptr && this->aes_iv_ != nullptr)
+            {
+                ESP_LOGCONFIG(TAG, "Spiderfarmer BLE Encryption is configured");
+            }
+            else
+            {
+                ESP_LOGCONFIG(TAG, "Spiderfarmer BLE Encryption is NOT configured");
+            }
+
 #ifdef USE_TEXT_SENSOR
             ESP_LOGCONFIG(TAG, "Spiderfarmer BLE (text sensor):");
 
@@ -385,10 +480,90 @@ namespace esphome
                                     | param->notify.value[5];
                                 if (data_size + 8 == param->notify.value_len)
                                 {
-                                    //ESP_LOGV(TAG, "[%s] looks like good data. got %d", this->parent_->address_str(), data_size);
-                                    for (int i = 12; i < data_size - 2; i++)
+                                    ESP_LOGV(TAG, "[%s] looks like good data. got %d", this->parent_->address_str(), data_size);
+
+                                    // Unencrypted
+                                    // aaaa0003 019e 0001 99e7 00000246 00000000 0190 7b226d65746...
+                                    // aaaa0003 00c5 0001 438f 00000247 00000190 00b7 70646174654...
+                                    // Encrypted
+                                    // aaaa0003 00de 0002 046d 000000d0 00000000 00d0 8faabc89655...
+
+                                    uint32_t total_size = ((uint32_t)param->notify.value[10] << 24) |
+                                        ((uint32_t)param->notify.value[11] << 16) |
+                                        ((uint32_t)param->notify.value[12] << 8) |
+                                        ((uint32_t)param->notify.value[13]);
+                                    uint32_t block_offset = ((uint32_t)param->notify.value[14] << 24) |
+                                        ((uint32_t)param->notify.value[15] << 16) |
+                                        ((uint32_t)param->notify.value[16] << 8) |
+                                        ((uint32_t)param->notify.value[17]);
+                                    uint16_t block_size = ((uint16_t)param->notify.value[18] << 8) |
+                                        ((uint16_t)param->notify.value[19]);
+
+                                    uint16_t full_crc = ((uint16_t)param->notify.value[20 + block_size] << 8) |
+                                        ((uint16_t)param->notify.value[20 + block_size + 1]);
+
+                                    uint8_t msgtype[2];
+                                    uint8_t fileid[2];
+                                    std::memcpy(msgtype, param->notify.value + 6, 2);
+                                    std::memcpy(fileid, param->notify.value + 8, 2);
+
+                                    uint16_t calculated_crc = crc16(param->notify.value, 20 + block_size);
+
+                                    ESP_LOGD(TAG, "HEADER: %s", format_hex(param->notify.value, 20).c_str());
+                                    ESP_LOGD(TAG, "Decoded: MSG: %s ID: %s TOTAL: %d OFF: %d SIZE: %d CRC: %d vs %d", format_hex(msgtype, 2).c_str(), format_hex(fileid, 2).c_str(), total_size, block_offset, block_size, calculated_crc, full_crc);
+
+                                    if (full_crc != calculated_crc)
                                     {
-                                        char c = static_cast<char>(param->notify.value[i + 8]);
+                                        ESP_LOGW(TAG, "Received invalid data, checksum do not match");
+                                    }
+
+                                    uint8_t *data = (uint8_t*)malloc(block_size);
+
+                                    if (msgtype[0] == 0x00 && msgtype[1] == 0x01)
+                                    {
+                                        std::memcpy(data, param->notify.value + 20, block_size);
+                                    }
+                                    else if (msgtype[0] == 0x00 && msgtype[1] == 0x02)
+                                    {
+                                        uint8_t *ciphertext = (uint8_t*)malloc(block_size);
+                                        std::memcpy(ciphertext, param->notify.value + 20, block_size);
+                                        size_t plaintext_len;
+
+                                        if (this->aes_key_ != nullptr && this->aes_iv_ != nullptr)
+                                        {
+                                            ESP_LOGD(TAG, "ENCRYPTED DATA");
+                                            dumpData(format_hex(ciphertext, block_size).c_str());
+                                            
+                                            psa_status_t status = decrypt_aes(
+                                                this->aes_key_, this->aes_iv_,
+                                                ciphertext, block_size,
+                                                data, block_size,
+                                                &plaintext_len
+                                            );
+
+                                            if (status != PSA_SUCCESS) {
+                                                ESP_LOGW(TAG, "ERR DECRYPTING: %d", status);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            ESP_LOGW(TAG, "Data cant be decrypted, no key/iv configured");
+                                            std::memcpy(data, param->notify.value + 20, block_size);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // NO IDEA
+                                        return;
+                                    }
+
+                                    ESP_LOGD(TAG, "DATA");
+                                    dumpData(format_hex(data, block_size).c_str());
+
+                                    // Pushing actual payload to string
+                                    for (int i = 0; i < block_size; i++)
+                                    {
+                                        char c = static_cast<char>(data[i]);
                                         // Filtering out some crap
                                         if (c >= 32 && c <= 126)
                                         {
@@ -403,6 +578,9 @@ namespace esphome
                             else if (param->notify.value[0] == 0x7B && param->notify.value[1] == 0x22 && param->notify.
                                 value[2] == 0x6d)
                             {
+                                ESP_LOGD(TAG, "DATA");
+                                dumpData(format_hex(param->notify.value, param->notify.value_len).c_str());
+
                                 for (int i = 0; i < param->notify.value_len; i++)
                                 {
                                     char c = static_cast<char>(param->notify.value[i]);
