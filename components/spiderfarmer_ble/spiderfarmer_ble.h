@@ -85,6 +85,11 @@ namespace esphome
         protected:
             const char* aes_key_{nullptr};
             const char* aes_iv_{nullptr};
+            void send_data(JsonObject json, bool encrypt);
+            void add_to_buffer(uint8_t *data, size_t data_len);
+            void parse_data(uint8_t *data, size_t data_len);
+            void handle_data();
+            bool dbg_sent = false;
 #ifdef USE_TEXT_SENSOR
             text_sensor::TextSensor* deviceid_sensor_{nullptr};
             text_sensor::TextSensor* fwversion_sensor_{nullptr};
@@ -122,8 +127,11 @@ namespace esphome
 
             sensor::Sensor* fan_level_sensor_{nullptr};
 #endif
-            uint16_t spiderfarmer_handle_;
+            uint16_t spiderfarmer_notify_handle_;
+            uint16_t spiderfarmer_write_handle_;
             std::string receive_buffer_;
+            bool receive_buffer_encrypted_ = false;
+            std::string last_received_data_;
         };
     }
 }
