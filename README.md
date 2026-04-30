@@ -31,6 +31,9 @@ Confirmed working, with Firmwares:
 
 Connection works and system data (versions, name etc) are displayed, but data is quite different and not parsed, since the light is usually connected to a controller
 
+With Firmwares:
+- 1.5
+
 ## Configuration
 
 You mainly need to specify the `mac_address` of your SpiderFarmer GGS and which sensors to use.
